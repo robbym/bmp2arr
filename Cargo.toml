@@ -1,0 +1,8 @@
+[package]
+name = "bmp2arr"
+version = "0.1.0"
+authors = ["rmadr"]
+
+[dependencies]
+clap = "2.4.0"
+bmp = "0.1.4"
