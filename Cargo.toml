@@ -6,3 +6,4 @@ authors = ["rmadr"]
 [dependencies]
 clap = "2.4.0"
 bmp = "0.1.4"
+itertools = "0.5.1"
