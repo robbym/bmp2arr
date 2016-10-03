@@ -1,9 +1,6 @@
 extern crate clap;
 extern crate bmp;
-extern crate itertools;
-
 use clap::{App, Arg, ArgMatches};
-use itertools::Itertools;
 
 fn parse_args<'a>() -> ArgMatches<'a> {
     App::new("bmp2arr")
@@ -11,16 +8,16 @@ fn parse_args<'a>() -> ArgMatches<'a> {
         .author("Robby Madruga <robbymadruga@gmail.com>")
         .about("Converts a bmp image to a bitmapped C array")
         .arg(Arg::with_name("BIT_COUNT")
-                 .short("b")
-                 .takes_value(true)
-                 .help("Specifies how many bits per color"))
+            .short("b")
+            .takes_value(true)
+            .help("Specifies how many bits per color"))
         .arg(Arg::with_name("LINE_COUNT")
-                 .short("c")
-                 .takes_value(true)
-                 .help("Specifies the number of bytes per row"))
+            .short("c")
+            .takes_value(true)
+            .help("Specifies the number of bytes per row"))
         .arg(Arg::with_name("FILE")
-                 .help("Sets the bmp file to convert")
-                 .required(true))
+            .help("Sets the bmp file to convert")
+            .required(true))
         .get_matches()
 }
 
@@ -41,44 +38,7 @@ fn print_image(v: Vec<u8>, w: u32, h: u32, line_wrap: usize) {
             _ => print!("0x{:02X}{} ", u, comma),
         }
     }
-    println!("}};");
-}
-
-struct MyIterator<'a, T: 'a> {
-    iters: Vec<&'a mut Iterator<Item=T>>,
-    idx: usize,
-    good: bool,
-}
-
-impl<'a, T> MyIterator<'a, T> {
-    fn new(ts: Vec<&'a mut Iterator<Item=T>>) -> MyIterator<'a, T> {
-        MyIterator {
-            iters: ts,
-            idx: 0,
-            good: false,
-        }
-    }
-}
-
-impl<'a, T> Iterator for MyIterator<'a, T> {
-    type Item = T;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        
-        loop {
-            let t = self.iters.get_mut(self.idx).unwrap().next();
-            
-            if self.idx == 0 { self.good = false; }
-            if self.idx+1 == self.iters.len() {
-                self.idx = 0;
-                if !self.good && t.is_none() { return None; }
-            }
-            else { self.idx += 1; }
-            
-            
-            if t.is_some() { self.good = true; return t; }
-        }
-    }
+    println!("\n}};");
 }
 
 fn main() {
@@ -96,8 +56,18 @@ fn main() {
 
     let (w, h) = (bmp.get_width(), bmp.get_height());
 
-    let v = bmp.coordinates().map(|(x, y)| bmp.get_pixel(x, y)).chunks(h as usize).interleave();
+    let v: Vec<u8> = bmp.coordinates()
+        .map(|(x, y)| bmp.get_pixel(x, y))
+        .flat_map(|p| vec![p.r, p.g, p.b])
+        .collect();
 
+    let mut r: Vec<u8> = Vec::new();
+    r.reserve((w * h * 3) as usize);
 
-    //print_image(v, w, h, line_wrap);
+    for (i, v) in v.iter().enumerate() {
+        let bit_idx = (i as u32)*bitcount/8;
+        let bit_sht = 
+    }
+
+    print_image(v, w, h, line_wrap);
 }
