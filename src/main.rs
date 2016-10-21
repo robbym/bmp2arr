@@ -21,7 +21,56 @@ fn parse_args<'a>() -> ArgMatches<'a> {
         .get_matches()
 }
 
-fn print_image(v: Vec<u8>, w: u32, h: u32, line_wrap: usize) {
+fn compress_image(image: &Vec<u8>) -> Vec<u8> {
+    let mut byte_count = [0u8; 256];
+    let mut max_idx = 0;
+    let mut max_val = 0;
+    for b in image {
+        let idx = *b as usize;
+        if byte_count[idx] < 255 {
+            byte_count[idx] += 1;
+        }
+
+        if byte_count[idx] > max_val {
+            max_idx = idx;
+            max_val = byte_count[idx];
+        }
+    }
+
+    let mut v: Vec<u8> = Vec::new();
+
+    let mut idx: usize = 0;
+    let mut count: u16 = 0;
+    loop {
+        if image[idx] == max_idx as u8 {
+            count += 1;
+        } else if count > 4 {
+            v.push(0x18);
+            v.push(0xE7);
+            v.push(max_idx as u8);
+            v.push(count as u8);
+            v.push((count >> 8) as u8);
+            v.push(image[idx]);
+            count = 0;
+        } else {
+            while count > 0 {
+                v.push(max_idx as u8);
+                count -= 1;
+            }
+            v.push(image[idx]);
+        }
+
+        if idx < image.len()-1 {
+            idx += 1;
+        } else {
+            break;
+        }
+    }
+    
+    v
+}
+
+fn print_image(v: &Vec<u8>, w: u32, h: u32, line_wrap: usize) {
     println!("#define image_width {}", w);
     println!("#define image_height {}", h);
 
@@ -62,12 +111,28 @@ fn main() {
         .collect();
 
     let mut r: Vec<u8> = Vec::new();
-    r.reserve((w * h * 3) as usize);
+    let output_size = (v.len()*(bitcount as usize)/8) as usize;
+    r.reserve(output_size);
 
     for (i, v) in v.iter().enumerate() {
-        let bit_idx = (i as u32)*bitcount/8;
-        let bit_sht = 
+        let bit_idx = (i as u32)*bitcount;
+        let bits_left = 8 - (bit_idx%8);
+        let value = v >> (8-bitcount);
+
+        while r.len() < ((1 + bit_idx/8) as usize) { r.push(0); }
+
+        if bits_left < bitcount {
+            r.push(0);
+
+            let overflow = bitcount-bits_left;
+            r[(bit_idx/8) as usize] |= value >> overflow;
+            r[(bit_idx/8 + 1) as usize] |= value << (8-overflow);
+        } else {
+            r[(bit_idx/8) as usize] |= value << (8-bitcount-(bit_idx%8));
+        }
     }
 
-    print_image(v, w, h, line_wrap);
+    let compressed = compress_image(&r);
+    println!("Normal: {}, Compressed: {}", r.len(), compressed.len());
+    print_image(&compressed, w, h, line_wrap);
 }
